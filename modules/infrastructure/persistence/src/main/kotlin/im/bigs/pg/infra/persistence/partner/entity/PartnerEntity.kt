@@ -22,4 +22,7 @@ class PartnerEntity(
     var name: String,
     @Column(nullable = false)
     var active: Boolean = true,
-)
+) {
+    // JPA 기본 생성자
+    constructor() : this(id = null, code = "", name = "", active = true)
+}
