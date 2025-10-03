@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 
 @DataJpaTest
 @ContextConfiguration(classes = [JpaConfig::class])
-class 결제저장소커서페이징Test @Autowired constructor(
+class PaymentRepositoryPagingTest @Autowired constructor(
     val paymentRepo: PaymentJpaRepository,
 ) {
     @Test
