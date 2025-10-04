@@ -36,3 +36,8 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     org.springframework.web: DEBUG
     im.bigs.pg: DEBUG
+pg:
+  test:
+    api-url: https://api-test-pg.bigs.im
+    api-key: ${TEST_PG_API_KEY}
+    iv: ${TEST_PG_IV}
