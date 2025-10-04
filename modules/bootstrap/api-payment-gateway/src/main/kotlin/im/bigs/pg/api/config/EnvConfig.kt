@@ -8,5 +8,4 @@ import org.springframework.context.annotation.PropertySources
 @PropertySources(
     PropertySource(value = ["file:.env"], ignoreResourceNotFound = true)
 )
-class EnvConfig {
-}
+class EnvConfig

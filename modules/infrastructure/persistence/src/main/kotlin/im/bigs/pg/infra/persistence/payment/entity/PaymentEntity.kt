@@ -43,7 +43,7 @@ class PaymentEntity(
     @Column(nullable = false)
     var updatedAt: Instant,
 
-){
+) {
     // JPA 기본 생성자
     constructor() : this(
         id = null, partnerId = 0L, amount = BigDecimal.ZERO, appliedFeeRate = BigDecimal.ZERO,

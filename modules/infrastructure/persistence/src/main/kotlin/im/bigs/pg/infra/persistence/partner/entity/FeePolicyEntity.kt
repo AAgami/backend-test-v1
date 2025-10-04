@@ -26,7 +26,7 @@ class FeePolicyEntity(
     var percentage: BigDecimal,
     @Column(precision = 15, scale = 0)
     var fixedFee: BigDecimal? = null,
-){
+) {
     // JPA 기본 생성자
     constructor() : this(id = null, partnerId = 0L, effectiveFrom = Instant.now(), percentage = BigDecimal.ZERO, fixedFee = null)
 }
