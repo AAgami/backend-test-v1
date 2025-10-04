@@ -40,4 +40,5 @@ pg:
   test:
     api-url: https://api-test-pg.bigs.im
     api-key: ${TEST_PG_API_KEY}
-    api-enc: ${TEST_PG_API_ENC}
+    api-iv: ${TEST_PG_API_IV}
+    fallback-enabled: ${TEST_PG_FALLBACK_ENABLED}
