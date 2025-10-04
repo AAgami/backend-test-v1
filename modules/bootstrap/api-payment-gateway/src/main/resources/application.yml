@@ -40,4 +40,4 @@ pg:
   test:
     api-url: https://api-test-pg.bigs.im
     api-key: ${TEST_PG_API_KEY}
-    iv: ${TEST_PG_IV}
+    api-enc: ${TEST_PG_API_ENC}
