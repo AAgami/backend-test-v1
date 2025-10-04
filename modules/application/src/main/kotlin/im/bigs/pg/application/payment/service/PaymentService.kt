@@ -12,6 +12,7 @@ import im.bigs.pg.domain.payment.Payment
 import im.bigs.pg.domain.payment.PaymentStatus
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 /**
  * 결제 생성 유스케이스 구현체.
@@ -49,7 +50,8 @@ class PaymentService(
         )
 
         // 정책 기반 수수료 계산으로 변경
-        val policy = feePolicyRepository.findEffectivePolicy(partner.id, LocalDateTime.now()) ?: throw IllegalArgumentException("Policy not found: ${partner.id}")
+        val policy = feePolicyRepository.findEffectivePolicy(partner.id, LocalDateTime.now(ZoneOffset.UTC)) ?: throw IllegalArgumentException("Policy not found: ${partner.id}")
+
         val (fee, net) = FeeCalculator.calculateFee(command.amount, policy.percentage, policy.fixedFee)
         val payment = Payment(
             partnerId = partner.id,
