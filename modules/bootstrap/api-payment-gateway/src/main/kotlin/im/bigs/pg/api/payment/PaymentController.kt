@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
-import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.ResponseEntity
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
-import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 /**
@@ -114,21 +112,23 @@ class PaymentController(
         @Parameter(description = "결제 상태")
         @RequestParam(required = false, defaultValue = "APPROVED") status: String?,
         @Parameter(description = "조회 시작 시각 ISO-8601")
-        @RequestParam(required = false, defaultValue = "2025-01-01T00:00:00Z") from: Instant?,
+        @RequestParam(required = false) from: Instant?,
         @Parameter(description = "조회 종료 시각 ISO-8601")
-        @RequestParam(required = false, defaultValue = "2025-01-01T00:00:00Z") to: Instant?,
+        @RequestParam(required = false) to: Instant?,
         @Parameter(description = "다음 페이지 커서")
-        @RequestParam(required = false, defaultValue = "") cursor: String?,
+        @RequestParam(required = false) cursor: String?,
         @Parameter(description = "페이지 크기 (기본값: 20)")
         @RequestParam(defaultValue = "20") limit: Int,
     ): ResponseEntity<QueryResponse> {
         val res = queryPaymentsUseCase.query(
-            QueryFilter(partnerId,
+            QueryFilter(
+                partnerId,
                 status,
                 from?.atZone(ZoneOffset.UTC)?.toLocalDateTime(),
                 to?.atZone(ZoneOffset.UTC)?.toLocalDateTime(),
                 cursor,
-                limit),
+                limit
+            ),
         )
 
         return ResponseEntity.ok(
