@@ -11,4 +11,3 @@ data class CreatePaymentRequest(
     val cardLast4: String? = null,
     val productName: String? = null,
 )
-

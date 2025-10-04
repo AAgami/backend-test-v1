@@ -1,5 +1,218 @@
 # 백엔드 사전 과제 – 결제 도메인 서버
 
+## 제출 추가 설명
+
+## 1. 환경 설정
+
+### 환경 변수(.env 최소키)
+```bash
+# root 경로에 .env 파일 생성
+TEST_PG_API_KEY=YOUR_API_KEY
+TEST_PG_API_IV=YOUR_API_IV
+```
+**실제 API 키/IV 없음**
+
+### Swagger 주소
+- **UI**: http://localhost:8080/swagger-ui.html
+- **OpenAPI**: http://localhost:8080/v3/api-docs
+
+## 2. 샘플 요청
+
+### 2.1 결제 생성 (POST /api/v1/payments)
+
+**MockPgClient 사용 (partnerId=1):**
+```bash
+curl -X POST "http://localhost:8080/api/v1/payments" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "partnerId": 1,
+    "amount": 10000,
+    "cardBin": "111111",
+    "cardLast4": "1111",
+    "productName": "샘플 결제"
+  }'
+```
+
+**FallbackPgClient 사용 (partnerId=2):**
+```bash
+curl -X POST "http://localhost:8080/api/v1/payments" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "partnerId": 2,
+    "amount": 50001,
+    "cardBin": "222222",
+    "cardLast4": "2222",
+    "productName": "샘플 결제"
+  }'
+```
+
+### 2.2 결제 목록/요약 조회 (GET /api/v1/payments)
+```bash
+curl "http://localhost:8080/api/v1/payments?partnerId=1&status=APPROVED&from=2025-10-01T00:00:00Z&to=2025-10-06T00:00:00Z&limit=20"
+```
+
+## 3. Test Pg 관련
+
+### PG 클라이언트
+- **MockPgClient**: partnerId (1) - Mock 데이터 반환
+- **TestPgClient**: partnerId (2) - 실제 API 연동
+- **FakePgClient**: partnerId (2) - 시뮬레이션
+- **FallbackPgClient**: TestPgClient 실패 시 FakePgClient로 폴백
+
+### 암호화 처리
+- **AES-256-GCM**: Test PG API 스펙 준수
+- **SHA-256 키 생성**: API-KEY 기반
+- **Base64URL 인코딩**: IV 및 암호문 처리
+
+## 4. 테스트 결과 샘플
+
+### 4.1 MockPgClient 테스트 (partnerId=1)
+**요청:**
+```bash
+curl -X POST "http://localhost:8080/api/v1/payments" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "partnerId": 1,
+    "amount": 10000,
+    "cardBin": "111111",
+    "cardLast4": "1111",
+    "productName": "테스트 결제"
+  }'
+```
+
+**응답:**
+```json
+{
+  "id": 1,
+  "partnerId": 1,
+  "amount": 10000,
+  "feeAmount": 235,
+  "netAmount": 9765,
+  "appliedFeeRate": 0.023500,
+  "approvalCode": "MOCK12345678",
+  "approvedAt": "2025-10-05T06:11:50.123456789Z",
+  "cardBin": "111111",
+  "cardLast4": "1111",
+  "status": "APPROVED",
+  "createdAt": "2025-10-05T06:11:50.123456789Z",
+  "updatedAt": "2025-10-05T06:11:50.123456789Z"
+}
+```
+
+### 4.2 FallbackPgClient 테스트 (partnerId=2)
+**요청:**
+```bash
+curl -X POST "http://localhost:8080/api/v1/payments" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "partnerId": 2,
+    "amount": 50001,
+    "cardBin": "222222",
+    "cardLast4": "2222",
+    "productName": "테스트 결제"
+  }'
+```
+
+**응답:**
+```json
+{
+  "id": 2,
+  "partnerId": 2,
+  "amount": 50001,
+  "feeAmount": 1175,
+  "netAmount": 48826,
+  "appliedFeeRate": 0.023500,
+  "approvalCode": "09304110",
+  "approvedAt": "2025-10-05T06:11:51.234567890Z",
+  "cardBin": "222222",
+  "cardLast4": "2222",
+  "status": "APPROVED",
+  "createdAt": "2025-10-05T06:11:51.234567890Z",
+  "updatedAt": "2025-10-05T06:11:51.234567890Z"
+}
+```
+
+### 4.3 결제 목록 조회 테스트
+**요청:**
+```bash
+curl "http://localhost:8080/api/v1/payments?partnerId=1&status=APPROVED&limit=10"
+```
+
+**응답:**
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "partnerId": 1,
+      "amount": 10000,
+      "feeAmount": 235,
+      "netAmount": 9765,
+      "approvalCode": "MOCK12345678",
+      "approvedAt": "2025-10-05T06:11:50.123456789Z",
+      "cardLast4": "1111",
+      "status": "APPROVED"
+    }
+  ],
+  "summary": {
+    "totalCount": 1,
+    "totalAmount": 10000,
+    "totalFeeAmount": 235,
+    "totalNetAmount": 9765
+  },
+  "nextCursor": null
+}
+```
+
+### 4.4 FakePgClient 시뮬레이션 테스트
+
+**성공 케이스 (카드번호: 1111-1111-1111-1111):**
+```json
+{
+  "approvalCode": "09304110",
+  "approvedAt": "2025-10-05T06:11:52.345678901Z",
+  "maskedCardLast4": "1111",
+  "amount": 10000,
+  "status": "APPROVED"
+}
+```
+
+**실패 케이스 (카드번호: 2222-2222-2222-2222, 금액: 51000):**
+```json
+{
+  "code": 1001,
+  "errorCode": "STOLEN_OR_LOST",
+  "message": "도난 또는 분실된 카드입니다.",
+  "referenceId": "ff2ab0c6-b77c-4dfe-a294-4ec641f8b55b"
+}
+```
+### 4.5 수수료 계산 검증
+- **partnerId=1**: 2.35% + 0원 = 235원 (10,000원 기준)
+- **partnerId=2**: 2.35% + 0원 = 1,175원 (50,001원 기준)
+- **반올림**: HALF_UP 방식 적용
+
+## 5. 확인 포인트(리뷰어용)
+
+### POST 성공 시
+- `feeAmount`, `netAmount`, `approvalCode`, `approvedAt`, `status` 포함
+- 수수료율 정확히 적용 (partnerId=1: 2.35%)
+- 카드정보 마스킹 처리 (cardLast4만 저장)
+
+### GET 응답
+- `items` 정렬: `createdAt desc, id desc`
+- `summary`는 같은 필터 집합 집계
+- `nextCursor` 제공 (커서 기반 페이지네이션)
+
+### 시간 표기
+- UTC ISO-8601 형식
+
+### PG 클라이언트 동작
+- **1 partnerId**: MockPgClient
+- **2 partnerId**: FallbackPgClient (TestPgClient → FakePgClient)
+- **실제 API 키/IV 없음**: FakePgClient 시뮬레이션 사용
+
+---
+
 본 과제는 나노바나나 페이먼츠의 “결제 도메인 서버”를 주제로, 백엔드 개발자의 설계·구현·테스트 역량을 평가하기 위한 사전 과제입니다. 제공된 멀티모듈 + 헥사고널 아키텍처 기반 코드를 바탕으로 요구사항을 충족하는 기능을 완성해 주세요.
 
 주의: 이 디렉터리(`backend-test-v1`)만 압축/전달됩니다. 외부 경로를 참조하지 않도록 README/코드/스크립트를 유지해 주세요.
@@ -139,5 +352,6 @@ GET /api/v1/payments?partnerId=1&status=APPROVED&from=2025-01-01T00:00:00Z&to=20
 - 전달한 본 프로젝트는 정상동작하지 않습니다. 요구사항을 포함해, 정상 동작을 목표로 진행하세요.
 - 본 과제와 관련한 어떠한 질문도 받지 않습니다.
 - 제출물을 기준으로 면접시 코드리뷰를 진행합니다. 이를 고려해주세요. 
+
 
 행운을 빕니다. 읽기 쉬운 코드, 일관된 설계, 신뢰할 수 있는 테스트를 기대합니다.

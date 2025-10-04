@@ -11,9 +11,34 @@ spring:
       hibernate:
         format_sql: true
         jdbc.time_zone: UTC
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
   jackson:
     serialization:
       write-dates-as-timestamps: false
 server:
   port: 8080
-
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: false
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.web: DEBUG
+    im.bigs.pg: DEBUG
+pg:
+  test:
+    api-url: https://api-test-pg.bigs.im
+    api-key: ${TEST_PG_API_KEY}
+    api-iv: ${TEST_PG_API_IV}
+    fallback-enabled: ${TEST_PG_FALLBACK_ENABLED}

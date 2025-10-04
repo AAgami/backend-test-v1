@@ -3,6 +3,7 @@ package im.bigs.pg.domain.payment
 import com.fasterxml.jackson.annotation.JsonFormat
 import java.math.BigDecimal
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 /**
  * 결제 이력의 스냅샷.
@@ -36,9 +37,9 @@ data class Payment(
     val approvedAt: LocalDateTime,
     val status: PaymentStatus,
     @get:JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: LocalDateTime = LocalDateTime.now(ZoneOffset.UTC),
     @get:JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    val updatedAt: LocalDateTime = LocalDateTime.now(ZoneOffset.UTC),
 )
 
 /** 결제 상태. 취소 시에도 원본 행을 유지하고 상태만 변경하는 방식 등을 고려합니다. */
