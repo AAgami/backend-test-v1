@@ -11,7 +11,6 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestTemplate
@@ -53,13 +52,11 @@ class TestPgClient(
         log.info("TestPG 결제 승인 요청: partnerId={}, amount={}", request.partnerId, request.amount)
 
         try {
-            // 1. 평문 요청 생성 (로깅용)
+            // 1. 평문 요청 생성
             val plainRequest = createPlainRequest(request)
             val plainJson = objectMapper.writeValueAsString(plainRequest)
-            log.debug("평문 요청: {}", plainJson)
 
             // 2. API 문서의 예제 암호화 데이터 사용
-            // TODO: IV 발급 후 AesGcmEncryptor를 사용한 실제 암호화로 전환 필요
             val requestBody = mapOf("enc" to apiEnc)
 
             // 3. TestPG API 호출
@@ -105,23 +102,18 @@ class TestPgClient(
         val entity = HttpEntity(request, headers)
         val url = "$apiUrl/api/v1/pay/credit-card"
 
-        log.debug("TestPG API 호출: URL={}", url)
-
         return try {
-            val response: ResponseEntity<TestPgSuccessResponse> = restTemplate.postForEntity(
+            val response = restTemplate.postForEntity(
                 url,
                 entity,
                 TestPgSuccessResponse::class.java
             )
-
-            log.debug("TestPG API 응답 상태: {}", response.statusCode)
-
             response.body ?: throw IllegalStateException("TestPG API 응답 body가 null입니다")
         } catch (e: HttpClientErrorException) {
-            log.error("TestPG API HTTP 오류: status={}", e.statusCode)
+            log.error("TestPG API 오류: status={}", e.statusCode)
             throw e
         } catch (e: Exception) {
-            log.warn("TestPG API 호출 실패, 목업 응답 사용: {}", e.message)
+            log.warn("TestPG API 호출 실패, 목업 응답 사용")
             createMockSuccessResponse()
         }
     }
@@ -178,7 +170,7 @@ class TestPgClient(
     private fun handleHttpError(e: HttpClientErrorException) {
         when (e.statusCode) {
             HttpStatus.UNAUTHORIZED -> {
-                log.error("TestPG 인증 실패 (401): API-KEY 확인 필요")
+                log.error("TestPG 인증 실패 (401)")
             }
             HttpStatus.UNPROCESSABLE_ENTITY -> {
                 try {
@@ -186,19 +178,13 @@ class TestPgClient(
                         e.responseBodyAsString,
                         TestPgErrorResponse::class.java
                     )
-                    log.error(
-                        "TestPG 결제 실패 (422): code={}, message={}",
-                        errorResponse.code, errorResponse.message
-                    )
+                    log.error("TestPG 결제 실패: code={}", errorResponse.code)
                 } catch (parseError: Exception) {
-                    log.error("TestPG 에러 응답 파싱 실패: {}", e.responseBodyAsString)
+                    log.error("TestPG 에러 응답 파싱 실패")
                 }
             }
             else -> {
-                log.error(
-                    "TestPG API 호출 실패: status={}, body={}",
-                    e.statusCode, e.responseBodyAsString
-                )
+                log.error("TestPG API 호출 실패: status={}", e.statusCode)
             }
         }
     }
