@@ -9,11 +9,13 @@
 # root 경로에 .env 파일 생성
 TEST_PG_API_KEY=YOUR_API_KEY
 TEST_PG_API_IV=YOUR_API_IV
+TEST_PG_FALLBACK_ENABLED=true
 ```
-**실제 API 키/IV 없음**
+- **실제 API 키/IV 없음**
+- FakePgClient를 통해 Test PG API 시뮬레이션이 수행됩니다.
 
 ### Swagger 주소
-- **UI**: http://localhost:8080/swagger-ui.html
+- **UI**: http://localhost:8080/swagger-ui/index.html
 - **OpenAPI**: http://localhost:8080/v3/api-docs
 
 ## 2. 샘플 요청
@@ -27,20 +29,21 @@ curl -X POST "http://localhost:8080/api/v1/payments" \
   -d '{
     "partnerId": 1,
     "amount": 10000,
-    "cardBin": "111111",
+    "cardBin": "1111",
     "cardLast4": "1111",
     "productName": "샘플 결제"
   }'
 ```
 
 **FallbackPgClient 사용 (partnerId=2):**
+- FallbackPgClient는 내부적으로 TestPgClient → 실패 시 FakePgClient 순으로 폴백됩니다.
 ```bash
 curl -X POST "http://localhost:8080/api/v1/payments" \
   -H "Content-Type: application/json" \
   -d '{
     "partnerId": 2,
     "amount": 50001,
-    "cardBin": "222222",
+    "cardBin": "2222",
     "cardLast4": "2222",
     "productName": "샘플 결제"
   }'
@@ -56,8 +59,8 @@ curl "http://localhost:8080/api/v1/payments?partnerId=1&status=APPROVED&from=202
 ### PG 클라이언트
 - **MockPgClient**: partnerId (1) - Mock 데이터 반환
 - **TestPgClient**: partnerId (2) - 실제 API 연동
-- **FakePgClient**: partnerId (2) - 시뮬레이션
-- **FallbackPgClient**: TestPgClient 실패 시 FakePgClient로 폴백
+- **FakePgClient**: partnerId (2) - Test PG API 시뮬레이션 (금액별 성공/실패)
+- **FallbackPgClient**: partnerId (2) - TestPgClient 실패 시 FakePgClient로 폴백
 
 ### 암호화 처리
 - **AES-256-GCM**: Test PG API 스펙 준수
@@ -74,7 +77,7 @@ curl -X POST "http://localhost:8080/api/v1/payments" \
   -d '{
     "partnerId": 1,
     "amount": 10000,
-    "cardBin": "111111",
+    "cardBin": "1111",
     "cardLast4": "1111",
     "productName": "테스트 결제"
   }'
@@ -91,7 +94,7 @@ curl -X POST "http://localhost:8080/api/v1/payments" \
   "appliedFeeRate": 0.023500,
   "approvalCode": "MOCK12345678",
   "approvedAt": "2025-10-05T06:11:50.123456789Z",
-  "cardBin": "111111",
+  "cardBin": "1111",
   "cardLast4": "1111",
   "status": "APPROVED",
   "createdAt": "2025-10-05T06:11:50.123456789Z",
@@ -107,7 +110,7 @@ curl -X POST "http://localhost:8080/api/v1/payments" \
   -d '{
     "partnerId": 2,
     "amount": 50001,
-    "cardBin": "222222",
+    "cardBin": "2222",
     "cardLast4": "2222",
     "productName": "테스트 결제"
   }'
@@ -119,17 +122,18 @@ curl -X POST "http://localhost:8080/api/v1/payments" \
   "id": 2,
   "partnerId": 2,
   "amount": 50001,
-  "feeAmount": 1175,
-  "netAmount": 48826,
-  "appliedFeeRate": 0.023500,
+  "feeAmount": 1600,
+  "netAmount": 48401,
+  "appliedFeeRate": 0.030000,
   "approvalCode": "09304110",
   "approvedAt": "2025-10-05T06:11:51.234567890Z",
-  "cardBin": "222222",
+  "cardBin": "2222",
   "cardLast4": "2222",
   "status": "APPROVED",
   "createdAt": "2025-10-05T06:11:51.234567890Z",
   "updatedAt": "2025-10-05T06:11:51.234567890Z"
 }
+
 ```
 
 ### 4.3 결제 목록 조회 테스트
@@ -141,7 +145,7 @@ curl "http://localhost:8080/api/v1/payments?partnerId=1&status=APPROVED&limit=10
 **응답:**
 ```json
 {
-  "items": [
+    "items": [
     {
       "id": 1,
       "partnerId": 1,
@@ -186,16 +190,21 @@ curl "http://localhost:8080/api/v1/payments?partnerId=1&status=APPROVED&limit=10
   "referenceId": "ff2ab0c6-b77c-4dfe-a294-4ec641f8b55b"
 }
 ```
+- 현재 컨트롤러 단에서는 공통 예외 핸들링이 별도 구성되어 있지 않아,
+Spring 기본 흐름에 따라 HttpClientErrorException이 내부 서버 오류(500)로 전달됩니다.
+- 예외 코드와 메시지는 이미 정의되어 있어 추후 @RestControllerAdvice 기반의 공통 예외 응답 구조로 확장하기 용이한 상태입니다.
+
+
 ### 4.5 수수료 계산 검증
 - **partnerId=1**: 2.35% + 0원 = 235원 (10,000원 기준)
-- **partnerId=2**: 2.35% + 0원 = 1,175원 (50,001원 기준)
+- **partnerId=2**: 3.00% + 100원 = 1,600원 (50,001원 기준)
 - **반올림**: HALF_UP 방식 적용
 
 ## 5. 확인 포인트(리뷰어용)
 
 ### POST 성공 시
 - `feeAmount`, `netAmount`, `approvalCode`, `approvedAt`, `status` 포함
-- 수수료율 정확히 적용 (partnerId=1: 2.35%)
+- 수수료율 정확히 적용 (partnerId=1: 2.35%, partnerId=2 → 3.00% + 100원)
 - 카드정보 마스킹 처리 (cardLast4만 저장)
 
 ### GET 응답
@@ -207,9 +216,8 @@ curl "http://localhost:8080/api/v1/payments?partnerId=1&status=APPROVED&limit=10
 - UTC ISO-8601 형식
 
 ### PG 클라이언트 동작
-- **1 partnerId**: MockPgClient
-- **2 partnerId**: FallbackPgClient (TestPgClient → FakePgClient)
-- **실제 API 키/IV 없음**: FakePgClient 시뮬레이션 사용
+- **1 partnerId**: MockPgClient 단순 Mock 응답
+- **2 partnerId**: FallbackPgClient TestPgClient 실패 시 FakePgClient로 대체
 
 ---
 
